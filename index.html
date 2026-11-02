@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Job Post Checker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eef2f7;
+    --surface: #ffffff;
+    --ink: #17202e;
+    --muted: #5d6b80;
+    --line: #d5dce6;
+    --brand: #2f5bea;
+    --safe: #15803d;
+    --safe-bg: #e3f5ea;
+    --risk: #c62828;
+    --risk-bg: #fde8e8;
+    --warn: #b45309;
+    --warn-bg: #fdf0dc;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1623;
+      --surface: #171f2f;
+      --ink: #e8edf5;
+      --muted: #93a1b8;
+      --line: #2b3650;
+      --brand: #6f8cff;
+      --safe: #4ade80;
+      --safe-bg: #12301f;
+      --risk: #ff7b7b;
+      --risk-bg: #3a1a1d;
+      --warn: #fbbf24;
+      --warn-bg: #3a2c10;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.55 "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 20px 56px; }
+  header h1 { margin: 0 0 6px; font-size: clamp(1.7rem, 4vw, 2.4rem); letter-spacing: -0.02em; }
+  header p { margin: 0; color: var(--muted); max-width: 60ch; }
+
+  .layout { display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; margin-top: 28px; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+  .panel h2 { margin: 0 0 14px; font-size: 1.1rem; }
+
+  label { display: block; font-weight: 600; font-size: .92rem; margin-bottom: 6px; }
+  .hint { font-weight: 400; color: var(--muted); }
+  input[type=text], textarea, select {
+    width: 100%; padding: 10px 12px; font: inherit; color: var(--ink);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  }
+  textarea { resize: vertical; min-height: 96px; }
+  input:focus, textarea:focus, select:focus, button:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--brand) 45%, transparent); outline-offset: 1px;
+  }
+  .field { margin-bottom: 16px; }
+  .row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 620px) { .row { grid-template-columns: 1fr; } }
+
+  .checks { display: flex; flex-wrap: wrap; gap: 8px 22px; margin: 4px 0 20px; }
+  .checks label { display: flex; align-items: center; gap: 8px; font-weight: 500; margin: 0; cursor: pointer; }
+  .checks input { width: 18px; height: 18px; accent-color: var(--brand); }
+
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  button {
+    font: inherit; font-weight: 600; border-radius: 8px; padding: 11px 20px; cursor: pointer;
+    border: 1px solid var(--line); background: transparent; color: var(--ink);
+  }
+  button.primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+  button.primary:disabled { opacity: .6; cursor: wait; }
+  button.link { border: none; padding: 11px 6px; color: var(--brand); }
+
+  /* Result */
+  .result { position: sticky; top: 20px; }
+  .empty { color: var(--muted); }
+  .verdict { border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .verdict strong { display: block; font-size: 1.35rem; letter-spacing: -0.01em; }
+  .verdict span { font-size: .92rem; }
+  .verdict.safe { background: var(--safe-bg); color: var(--safe); }
+  .verdict.risk { background: var(--risk-bg); color: var(--risk); }
+  .verdict.warn { background: var(--warn-bg); color: var(--warn); }
+
+  .meter-head { display: flex; justify-content: space-between; font-weight: 600; margin-bottom: 6px; }
+  .meter { height: 12px; border-radius: 99px; background: var(--line); overflow: hidden; }
+  .meter i { display: block; height: 100%; width: 0; border-radius: 99px; background: var(--safe); transition: width .6s ease; }
+  .meter i.mid { background: var(--warn); }
+  .meter i.high { background: var(--risk); }
+
+  .flags { margin: 18px 0 0; padding: 0; list-style: none; }
+  .flags li { padding: 8px 0; border-top: 1px solid var(--line); font-size: .92rem; }
+  .flags b { color: var(--risk); }
+  .note { margin-top: 16px; font-size: .82rem; color: var(--muted); }
+  .demo-tag { display: inline-block; font-size: .78rem; font-weight: 600; background: var(--warn-bg); color: var(--warn); border-radius: 6px; padding: 2px 8px; margin-bottom: 12px; }
+  .error { color: var(--risk); margin-top: 12px; font-size: .92rem; }
+
+  @media (prefers-reduced-motion: reduce) { .meter i { transition: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Job Post Checker</h1>
+    <p>Paste a job posting and see how likely it is to be fake. Scammers often hide behind vague roles, big pay and quick hiring.</p>
+  </header>
+
+  <main class="layout">
+    <!-- FORM -->
+    <form id="jobForm" class="panel" novalidate>
+      <h2>Job details</h2>
+
+      <div class="field">
+        <label for="title">Job title</label>
+        <input type="text" id="title" placeholder="e.g. Data Entry Executive">
+      </div>
+
+      <div class="field">
+        <label for="company_profile">Company profile <span class="hint">(optional)</span></label>
+        <textarea id="company_profile" placeholder="What the company says about itself"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="description">Job description</label>
+        <textarea id="description" rows="5" placeholder="Paste the full job description"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="requirements">Requirements <span class="hint">(optional)</span></label>
+        <textarea id="requirements" placeholder="Skills, experience, qualifications"></textarea>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="employment_type">Employment type</label>
+          <select id="employment_type">
+            <option>Unknown</option><option>Full-time</option><option>Part-time</option>
+            <option>Contract</option><option>Temporary</option><option>Other</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="required_experience">Experience</label>
+          <select id="required_experience">
+            <option>Unknown</option><option>Internship</option><option>Entry level</option>
+            <option>Associate</option><option>Mid-Senior level</option><option>Director</option>
+            <option>Executive</option><option>Not Applicable</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="required_education">Education</label>
+          <select id="required_education">
+            <option>Unknown</option><option>High School or equivalent</option>
+            <option>Vocational</option><option>Certification</option>
+            <option>Associate Degree</option><option>Bachelor's Degree</option>
+            <option>Master's Degree</option><option>Doctorate</option>
+            <option>Professional</option><option>Unspecified</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="checks">
+        <label><input type="checkbox" id="telecommuting"> Remote / work from home</label>
+        <label><input type="checkbox" id="has_company_logo"> Has company logo</label>
+        <label><input type="checkbox" id="has_questions"> Has screening questions</label>
+      </div>
+
+      <div class="actions">
+        <button type="submit" class="primary" id="checkBtn">Check this job</button>
+        <button type="button" id="resetBtn">Clear</button>
+        <button type="button" class="link" id="sampleBtn">Fill a sample</button>
+      </div>
+      <div id="error" class="error" role="alert"></div>
+    </form>
+
+    <!-- RESULT -->
+    <aside class="panel result" aria-live="polite">
+      <h2>Result</h2>
+      <div id="resultBody" class="empty">Fill in the job details and select “Check this job”. The result appears here.</div>
+    </aside>
+  </main>
+</div>
+
+<script>
+  // Flask backend (app.py) ka address. Deploy karne par isse badal dena.
+  const API_URL = "http://127.0.0.1:5000/predict";
+
+  const $ = (id) => document.getElementById(id);
+  const form = $("jobForm");
+
+  const SAMPLE = {
+    title: "Work From Home Data Entry - Earn $5000 Weekly",
+    company_profile: "",
+    description: "Urgent hiring! No experience needed. Earn up to $5000 per week working from home. Just pay a small registration fee of $50 to get started. Contact us on WhatsApp or Telegram for immediate joining.",
+    requirements: "Must have a smartphone and a bank account. Send your ID and bank details to apply.",
+    employment_type: "Part-time", required_experience: "Not Applicable", required_education: "Unspecified",
+    telecommuting: true, has_company_logo: false, has_questions: false
+  };
+
+  // Quick hints shown to the user (for explanation only; the real score comes from the model)
+  const RED_FLAGS = [
+    [/registration fee|pay.{0,20}fee|security deposit|processing fee/i, "Asks for money upfront"],
+    [/whatsapp|telegram|gmail\.com|yahoo\.com/i, "Uses personal chat or free email for hiring"],
+    [/bank (details|account)|aadhaar|passport|ssn|id proof/i, "Asks for sensitive personal or bank details"],
+    [/no experience|earn up to|\$\s?\d{3,}.{0,15}(week|day)|per week|weekly/i, "Promises high pay for little work"],
+    [/urgent|immediate joining|limited seats|apply now/i, "Pressure to act fast"]
+  ];
+
+  function getData() {
+    return {
+      title: $("title").value.trim(),
+      company_profile: $("company_profile").value.trim(),
+      description: $("description").value.trim(),
+      requirements: $("requirements").value.trim(),
+      employment_type: $("employment_type").value,
+      required_experience: $("required_experience").value,
+      required_education: $("required_education").value,
+      telecommuting: $("telecommuting").checked ? 1 : 0,
+      has_company_logo: $("has_company_logo").checked ? 1 : 0,
+      has_questions: $("has_questions").checked ? 1 : 0
+    };
+  }
+
+  function findFlags(d) {
+    const text = [d.title, d.company_profile, d.description, d.requirements].join(" ");
+    const flags = RED_FLAGS.filter(([re]) => re.test(text)).map(([, msg]) => msg);
+    if (!d.has_company_logo) flags.push("No company logo");
+    if (!d.company_profile) flags.push("No company profile given");
+    if (d.description.length < 150) flags.push("Very short job description");
+    return flags;
+  }
+
+  // Backend na chale to sirf demo ke liye rough estimate
+  function demoEstimate(d) {
+    const n = findFlags(d).length;
+    return Math.min(0.95, 0.08 + n * 0.14);
+  }
+
+  async function predict(d) {
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(d)
+      });
+      if (!res.ok) throw new Error("Server error " + res.status);
+      const out = await res.json();
+      const p = typeof out.probability === "number" ? out.probability : (out.prediction ? 1 : 0);
+      return { probability: p, demo: false };
+    } catch (e) {
+      return { probability: demoEstimate(d), demo: true };
+    }
+  }
+
+  function showResult(d, { probability, demo }) {
+    const pct = Math.round(probability * 100);
+    let cls = "safe", title = "Looks genuine", sub = "The model found few signs of a scam.";
+    if (probability >= 0.6) { cls = "risk"; title = "Likely fake"; sub = "Do not share money or personal details."; }
+    else if (probability >= 0.3) { cls = "warn"; title = "Be careful"; sub = "Some warning signs. Verify the company first."; }
+
+    const flags = findFlags(d);
+    const flagHtml = flags.length
+      ? `<ul class="flags">${flags.map(f => `<li><b>Flag:</b> ${f}</li>`).join("")}</ul>`
+      : `<p class="note">No obvious warning signs found in the text.</p>`;
+
+    $("resultBody").className = "";
+    $("resultBody").innerHTML = `
+      ${demo ? `<div class="demo-tag">Demo estimate: backend not connected</div>` : ""}
+      <div class="verdict ${cls}"><strong>${title}</strong><span>${sub}</span></div>
+      <div class="meter-head"><span>Fake probability</span><span>${pct}%</span></div>
+      <div class="meter"><i id="bar" class="${probability >= 0.6 ? "high" : probability >= 0.3 ? "mid" : ""}"></i></div>
+      ${flagHtml}
+      <p class="note">This is an automated estimate, not proof. Always check the company website and never pay to get a job.</p>`;
+    requestAnimationFrame(() => { $("bar").style.width = pct + "%"; });
+  }
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const d = getData();
+    $("error").textContent = "";
+    if (!d.title || !d.description) {
+      $("error").textContent = "Enter at least the job title and job description.";
+      return;
+    }
+    const btn = $("checkBtn");
+    btn.disabled = true; btn.textContent = "Checking…";
+    const result = await predict(d);
+    showResult(d, result);
+    btn.disabled = false; btn.textContent = "Check this job";
+  });
+
+  $("resetBtn").addEventListener("click", () => {
+    form.reset();
+    $("error").textContent = "";
+    $("resultBody").className = "empty";
+    $("resultBody").textContent = "Fill in the job details and select “Check this job”. The result appears here.";
+  });
+
+  $("sampleBtn").addEventListener("click", () => {
+    Object.entries(SAMPLE).forEach(([k, v]) => {
+      const el = $(k);
+      if (el.type === "checkbox") el.checked = v; else el.value = v;
+    });
+  });
+</script>
+</body>
+</html>
